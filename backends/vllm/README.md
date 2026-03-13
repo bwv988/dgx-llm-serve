@@ -1,48 +1,48 @@
 # vLLM Backend
 
-vLLM を使用した LLM サービング環境。
+vLLM-based LLM serving environment.
 
-## 対応モデル
+## Supported Models
 
-| プロファイル | モデル | 特徴 |
-|-------------|--------|------|
-| qwen | Qwen3-Coder-30B-A3B-Instruct | ツール呼び出し対応 |
-| qwen35 | Qwen3.5-35B-A3B-FP8 | Gated DeltaNet + MoE, FP8 量子化, thinking モード（reasoning_content 分離）, テキスト専用モード（ビジョン無効化） |
-| nemotron | NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 | 高速推論 |
-| nemotron-vl | NVIDIA-Nemotron-Nano-12B-v2-VL | マルチモーダル（画像対応）|
-| multi | Qwen3-Coder + Nemotron 同時起動 | OpenResty プロキシで単一ポート |
+| Profile | Model | Features |
+|---------|-------|----------|
+| qwen | Qwen3-Coder-30B-A3B-Instruct | Tool calling support |
+| qwen35 | Qwen3.5-35B-A3B-FP8 | Gated DeltaNet + MoE, FP8 quantization, thinking mode (reasoning_content separation), text-only mode (vision disabled) |
+| nemotron | NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4 | Fast inference |
+| nemotron-vl | NVIDIA-Nemotron-Nano-12B-v2-VL | Multimodal (image support) |
+| multi | Qwen3-Coder + Nemotron simultaneous startup | Single port with OpenResty proxy |
 
-## 起動
+## Startup
 
 ```bash
-# Qwen3-Coder (ツール呼び出し対応)
+# Qwen3-Coder (tool calling support)
 docker compose --profile qwen up
 
-# Qwen3.5 (thinking モード対応)
+# Qwen3.5 (thinking mode support)
 docker compose --profile qwen35 up
 
 # Nemotron
 docker compose --profile nemotron up
 
-# Nemotron-VL (マルチモーダル)
+# Nemotron-VL (multimodal)
 docker compose --profile nemotron-vl up
 
-# マルチモデル (Qwen3-Coder + Nemotron を単一ポートで同時起動)
+# Multi-model (Qwen3-Coder + Nemotron simultaneous startup)
 docker compose --profile multi up
 ```
 
-## マルチモデル起動
+## Multi-Model Startup
 
-`multi` プロファイルは OpenResty プロキシ経由で2モデルをポート 8000 に統合します。
-リクエストボディの `model` フィールドで自動ルーティングされます。
+The `multi` profile integrates 2 models on port 8000 via OpenResty proxy.
+Automatic routing based on the `model` field in the request body.
 
-| モデル | GPU メモリ | ルーティング条件 |
-|--------|-----------|-----------------|
-| Qwen3-Coder-30B-A3B (bf16) | 50% | `model` に "qwen" を含む |
-| Nemotron-30B-A3B (NVFP4) | 25% | `model` に "nemotron" を含む |
+| Model | GPU Memory | Routing Condition |
+|-------|-----------|-------------------|
+| Qwen3-Coder-30B-A3B (bf16) | 50% | `model` contains "qwen" |
+| Nemotron-30B-A3B (NVFP4) | 25% | `model` contains "nemotron" |
 
 ```bash
-# 利用可能なモデル一覧
+# List available models
 curl http://localhost:8000/v1/models
 
 # Qwen3-Coder
@@ -56,33 +56,33 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   -d '{"model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
-### トラブルシューティング
+### Troubleshooting
 
-- **503 unhealthy**: 両バックエンドの起動完了を待ってください（初回は数分かかります）
-- **404 unknown model**: `model` フィールドに "qwen" または "nemotron" を含む正しいモデル名を指定してください
-- **GPU OOM**: `--gpu-memory-utilization` を各サービスで調整してください
-- **ツール呼び出し**: multi プロファイルでは Qwen3-Coder のツール呼び出し（`--tool-call-parser`）は無効です。ドライバ 590+ に更新後、両サービスを 26.01 イメージに統一すると有効化できます
+- **503 unhealthy**: Wait for both backends to finish starting (first start takes several minutes)
+- **404 unknown model**: Specify the correct model name containing "qwen" or "nemotron" in the `model` field
+- **GPU OOM**: Adjust `--gpu-memory-utilization` for each service
+- **Tool calling**: Tool calling (with `--tool-call-parser`) for Qwen3-Coder is disabled in multi profile. After updating to driver 590+, both services can use the 26.01 image to enable it
 
-### Forward Compat 制約（ドライバ 580）
+### Forward Compat Constraint (Driver 580)
 
-ドライバ 580 は CUDA 13.0.2 をネイティブサポートし、CUDA 13.1 (26.01) は Forward Compat で **1 コンテナのみ** 同時実行可能です。
+Driver 580 natively supports CUDA 13.0.2, and CUDA 13.1 (26.01) can only run **1 container at a time** via Forward Compat.
 
-- multi プロファイルは Qwen (25.11 / CUDA 13.0.2) + Nemotron (26.01 / CUDA 13.1) の組み合わせでこの制約を回避しています
-- 26.01 × 2 コンテナ（例: Qwen3-FP4 + Nemotron）は、Nemotron の flashinfer CUTLASS バックエンド初期化に失敗するため **不可**
-- ドライバ 590+ へのアップデートにより CUDA 13.1 がネイティブ対応になれば、この制約は解消される見込み
+- The multi profile uses the Qwen (25.11 / CUDA 13.0.2) + Nemotron (26.01 / CUDA 13.1) combination to avoid this constraint
+- 26.01 × 2 containers (e.g., Qwen3-FP4 + Nemotron) is **not possible** because Nemotron's flashinfer CUTLASS backend initialization fails
+- With driver 590+ update, CUDA 13.1 will be natively supported and this constraint is expected to be resolved
 
-## 設定パラメータ
+## Configuration Parameters
 
-| パラメータ | 値 | 説明 |
-|-----------|-----|------|
-| `--gpu-memory-utilization` | 0.9 | GPU メモリ使用率 |
-| `--max-model-len` | 32768 | 最大コンテキスト長 |
-| `--max-num-seqs` | 4 | 最大並行シーケンス数 |
-| `--tensor-parallel-size` | 1 | テンソル並列数 |
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `--gpu-memory-utilization` | 0.9 | GPU memory utilization |
+| `--max-model-len` | 32768 | Maximum context length |
+| `--max-num-seqs` | 4 | Maximum concurrent sequence count |
+| `--tensor-parallel-size` | 1 | Tensor parallel size |
 
-## ツール呼び出し
+## Tool Calling
 
-Qwen3-Coder でツール呼び出しを使用する場合:
+To use tool calling with Qwen3-Coder:
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
@@ -108,9 +108,9 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-詳細は [ツール呼び出しガイド](../../docs/tool-calling.md) を参照。
+See [Tool Calling Guide](../../docs/tool-calling.md) for details.
 
-## 環境要件
+## Environment Requirements
 
 - NVIDIA GPU + nvidia-container-toolkit
-- モデルウェイト: `~/model_weights/` に配置
+- Model weights: Located in `~/model_weights/`

@@ -63,11 +63,11 @@ services:
 
   vllm-qwen35:
     <<: *common
-    # Qwen3.5 は vLLM upstream イメージが必要（NGC 26.01 は transformers が古く qwen3_5_moe 未対応）
-    # v0.17.0-cu130: nightly で必要だった修正（Triton/RMSNormGated）が安定版に含まれた
+    # Qwen3.5 requires vLLM upstream image (NGC 26.01 transformers is too old for qwen3_5_moe)
+    # v0.17.0-cu130: fixes that were needed in nightly (Triton/RMSNormGated) are included in stable version
     image: vllm/vllm-openai:v0.17.1-cu130
     profiles: ["qwen35"]
-    # vllm/vllm-openai は ENTRYPOINT ["vllm", "serve"] がプリセット済みのため、command にはモデルパス以降のみ指定
+    # vllm/vllm-openai has ENTRYPOINT ["vllm", "serve"] preset, so only specify model path and beyond for command
     command:
       - /app/model/Qwen/Qwen3.5-35B-A3B-FP8
       - --host
@@ -149,7 +149,7 @@ services:
 
   vllm-multi-qwen:
     <<: *common
-    # Qwen3MoE は vLLM 0.8.4+ 対応。CUDA 13.0.2 ネイティブで Forward Compat 不要
+    # Qwen3MoE requires vLLM 0.8.4+. CUDA 13.0.2 native, no Forward Compat needed
     image: nvcr.io/nvidia/vllm:25.11-py3
     profiles: ["multi"]
     ports: []
@@ -172,7 +172,7 @@ services:
       - --tensor-parallel-size
       - "1"
       - --gpu-memory-utilization
-      # bf16 (56.93 GiB) + 0.50 (64 GiB) では KV キャッシュが ~70 MiB 不足する境界条件
+      # bf16 (56.93 GiB) + 0.50 (64 GiB) is boundary where KV cache is ~70 MiB insufficient
       - "0.52"
       - --max-model-len
       - "32768"
@@ -188,7 +188,7 @@ services:
 
   vllm-multi-nemotron:
     <<: *common
-    # NemotronH + NVFP4 は 26.01 必須。ドライバ 580 では Forward Compat を独占使用
+    # NemotronH + NVFP4 requires 26.01. Driver 580 uses Forward Compat exclusively
     profiles: ["multi"]
     ports: []
     healthcheck:
