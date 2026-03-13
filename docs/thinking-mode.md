@@ -1,18 +1,19 @@
-# Qwen3 Thinking モード
+# Qwen3 Thinking Mode
 
-Qwen3 モデルは推論時に「思考プロセス」を出力する Thinking モードを備えている。
+The Qwen3 model includes a Thinking mode that outputs the "thinking process" during inference.
 
-## 概要
+## Overview
 
-- **デフォルト**: 有効（Thinking モード）
-- **出力形式**: レスポンスに `<think>...</think>` タグで思考プロセスが含まれる
-- **対応バックエンド**: TensorRT-LLM, vLLM（Qwen3 系モデル）
+- **Default**: Enabled (Thinking mode)
+- **Output format**: Thinking process is included in the response with `
+thought process is separated into the `reasoning_content` field
+- **Supported backends**: TensorRT-LLM, vLLM (Qwen3 family models)
 
-## Thinking モード（有効）
+## Thinking Mode (Enabled)
 
-デフォルトの動作。モデルは回答前に思考プロセスを出力する。
+Default behavior. The model outputs the thinking process before giving the answer.
 
-### リクエスト例
+### Request Example
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
@@ -24,22 +25,21 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-### レスポンス例
+### Response Example
 
 ```
-<think>
+thought process is separated into the `reasoning_content` field
 The user is asking for a simple arithmetic calculation.
 2 + 2 = 4
 </think>
-
 The answer is 4.
 ```
 
-## Non-thinking モード（無効化）
+## Non-thinking Mode (Disabled)
 
-システムプロンプトに `/no_think` を追加すると、思考プロセスを出力せずに回答のみを返す。
+Adding `/no_think` to the system prompt makes the model output only the answer without the thinking process.
 
-### リクエスト例
+### Request Example
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
@@ -54,35 +54,23 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-### レスポンス例
+### Response Example
 
 ```
 The answer is 4.
 ```
 
-## クライアント側での処理
+## Client-Side Processing
 
-Thinking モード使用時は、クライアント側でレスポンスから `<think>...</think>` タグを除去する必要がある。
+When using Thinking mode, you need to remove the `
+tags from the response.
 
-### Python での除去例
+### Python Example
 
 ```python
 import re
 
 def remove_thinking(response: str) -> str:
-    """Remove <think>...</think> tags from response."""
-    return re.sub(r'<think>.*?</think>\s*', '', response, flags=re.DOTALL)
-```
-
-### JavaScript での除去例
-
-```javascript
-function removeThinking(response) {
-  return response.replace(/<think>[\s\S]*?<\/think>\s*/g, '');
-}
-```
-
-## 備考
-
-- Nemotron: `--reasoning_parser deepseek-r1` で思考過程が `reasoning_content` フィールドに分離される
-- Qwen3: Thinking タグの除去はクライアント側で実装が必要
+    """Remove `
+ tags from response."""
+    return re.sub(r'`thought` tags are removed, client-side implementation is required

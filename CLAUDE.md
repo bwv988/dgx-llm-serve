@@ -1,45 +1,45 @@
 # AGENTS.md / CLAUDE.md
 
-このファイルは、このリポジトリで作業する **すべての AI コーディングエージェント** 向けの共通ガイドです。
-（例: Claude Code, Codex, Cursor, Cline など）
+This file is the common guide for **all AI coding agents** working on this repository.
+(Examples: Claude Code, Codex, Cursor, Cline, etc.)
 
-## 基本方針（全エージェント共通）
+## Basic Principles (Common to All Agents)
 
-- 変更は最小差分で行い、無関係なリファクタは避ける
-- ユーザーが作成した既存変更は勝手に巻き戻さない
-- 破壊的操作（`rm -rf`, `git reset --hard` など）は明示依頼がある場合のみ
-- 実装後は、可能な範囲で検証コマンドを実行し、結果を報告する
-- 不明点がある場合は、推測で進めすぎず短く具体的に確認する
-- 新規依存や外部アクセスが必要な場合は、理由を明示して合意を取る
+- Make minimal, targeted changes; avoid unrelated refactoring
+- Do not blindly revert user-created changes
+- Destructive operations (`rm -rf`, `git reset --hard`, etc.) only when explicitly requested
+- After implementation, run verification commands where possible and report results
+- When uncertain, avoid over-speculation and ask for short, specific clarification
+- For new dependencies or external access, explicitly state the reason and obtain agreement
 
-## プロジェクト概要
+## Project Overview
 
-DGX Spark OEM機向け LLM 推論バックエンド（TensorRT-LLM, vLLM, NVIDIA NIM）を Docker Compose で管理するモノレポジトリ。
+Docker Compose managed monorepo for LLM inference backends optimized for NVIDIA DGX Spark OEM machines (TensorRT-LLM, vLLM, NVIDIA NIM).
 
-## ディレクトリ構造
+## Directory Structure
 
 ```text
 dgx-llm-serve/
 ├── backends/
 │   ├── trtllm/    # TensorRT-LLM (Qwen3-FP4, Nemotron-NVFP4)
 │   ├── vllm/      # vLLM (Qwen3-Coder, Qwen3.5, Nemotron, Nemotron-VL)
-│   └── nim/       # NVIDIA NIM (DGX Spark 向け)
-├── artifacts/     # ベンチマーク結果 (aiperf 出力)
-├── docs/          # 共通ドキュメント
-└── scripts/       # ユーティリティスクリプト
+│   └── nim/       # NVIDIA NIM (DGX Spark)
+├── artifacts/     # Benchmark results (aiperf output)
+├── docs/          # Common documentation
+└── scripts/       # Utility scripts
 ```
 
-## 主要コマンド
+## Key Commands
 
-### サーバー起動
+### Starting Servers
 
 ```bash
-# TensorRT-LLM (プロファイル選択)
+# TensorRT-LLM (profile selection)
 cd backends/trtllm && docker compose --profile qwen up
 cd backends/trtllm && docker compose --profile nemotron up
 cd backends/trtllm && docker compose --profile multi up
 
-# vLLM (プロファイル選択)
+# vLLM (profile selection)
 cd backends/vllm && docker compose --profile qwen up
 cd backends/vllm && docker compose --profile qwen35 up
 cd backends/vllm && docker compose --profile nemotron up
@@ -50,66 +50,66 @@ cd backends/vllm && docker compose --profile multi up
 cd backends/nim && docker compose up
 ```
 
-### ヘルスチェック
+### Health Check
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-### API テスト
+### API Test
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "<MODEL_NAME>", "messages": [{"role": "user", "content": "Hello"}]}'
 
-# MODEL_NAME 例:
+# MODEL_NAME examples:
 #   TRT-LLM:  nvidia/Qwen3-30B-A3B-FP4, nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
 #   vLLM:     Qwen/Qwen3-Coder-30B-A3B-Instruct, Qwen/Qwen3.5-35B-A3B-FP8
 #             nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4, nvidia/NVIDIA-Nemotron-Nano-12B-v2-VL-NVFP4-QAD
 #   NIM:      Qwen/Qwen3-32B
 ```
 
-### ベンチマーク
+### Benchmark
 
 ```bash
-# aiperf によるベンチマーク（結果は artifacts/ に出力）
+# Run benchmark with aiperf (output to artifacts/)
 uv run scripts/benchmark.py --model <MODEL_NAME>
 ```
 
-## バックエンド固有の注意事項
+## Backend-Specific Notes
 
 ### TensorRT-LLM
-- イメージ: `1.3.0rc4` (ARM64 対応)
-- Nemotron: `--backend _autodeploy` + `compile_backend: torch-cudagraph` (Mamba SSM 互換)
-- multi プロファイル: `qwen_multi.yaml` で KV キャッシュ制限必須（デフォルトだと OOM）
-- SM120 `cudaErrorIllegalInstruction`: 1.3.0rc3+ で解消済み。Qwen の `compile_backend: torch-cudagraph` は削除済み
-- Thinking モード: デフォルトで有効。`/no_think` をシステムプロンプトに追加で無効化
-- クライアント側で `<think>...</think>` タグの除去が必要
+- Image: `1.3.0rc4` (ARM64 support)
+- Nemotron: `--backend _autodeploy` + `compile_backend: torch-cudagraph` (Mamba SSM compatible)
+- multi profile: KV cache limit required in `qwen_multi.yaml` (OOM without it)
+- SM120 `cudaErrorIllegalInstruction`: Fixed in 1.3.0rc3+. Qwen's `compile_backend: torch-cudagraph` removed
+- Thinking mode: Enabled by default. Add `/no_think` to system prompt to disable
+- Need to strip `` tags on client side
 
 ### vLLM
-- Qwen3.5-35B-A3B-FP8: `qwen35` プロファイル。`vllm/vllm-openai:v0.17.1-cu130` 使用（NGC 26.01 は `qwen3_5_moe` 未対応）。`--reasoning-parser qwen3` で thinking を `reasoning_content` に分離。`--language-model-only` でビジョンエンコーダーを無効化（テキスト専用モード）。SM 12.1 では TRITON Fp8 MoE バックエンドが自動選択される
-- ツール呼び出し対応（Qwen3-Coder）
-- 内部プロンプト確認: `echo: true` パラメータを使用
-- 設定パラメータ: `--gpu-memory-utilization 0.9`, `--max-model-len 32768`
-- multi プロファイル: Qwen (25.11) + Nemotron (26.01) で異なるイメージ。ツール呼び出しは multi では無効
-- Forward Compat 制約: ドライバ 580 では 26.01 (CUDA 13.1) コンテナは同時 1 つまで。26.01 × 2 は不可
+- Qwen3.5-35B-A3B-FP8: `qwen35` profile. Uses `vllm/vllm-openai:v0.17.1-cu130` (NGC 26.01 doesn't support `qwen3_5_moe`). `--reasoning-parser qwen3` separates thinking into `reasoning_content`. `--language-model-only` disables vision encoder (text-only mode). SM 12.1 selects TRITON Fp8 MoE backend automatically
+- Tool calling support (Qwen3-Coder)
+- Internal prompt inspection: Use `echo: true` parameter
+- Config params: `--gpu-memory-utilization 0.9`, `--max-model-len 32768`
+- multi profile: Qwen (25.11) + Nemotron (26.01) use different images. Tool calling disabled in multi
+- Forward Compat constraint: Driver 580 limits 26.01 (CUDA 13.1) containers to 1 at a time. Cannot run 2 26.01 containers
 
 ### NIM
-- モデル: `qwen/qwen3-32b-dgx-spark:1.1.0-variant`
-- モデルはコンテナイメージに含まれる（ホスト側マウント不要）
-- NGC API キー認証が必要（`NGC_API_KEY` 環境変数）
-- ワークスペースボリュームのマウントは不可（NIM 内部管理）
+- Model: `qwen/qwen3-32b-dgx-spark:1.1.0-variant`
+- Model included in container image (no host mount needed)
+- NGC API key authentication required (`NGC_API_KEY` environment variable)
+- Workspace volume mount not supported (NIM internal management)
 
-## 環境要件
+## Environment Requirements
 
-- ターゲット: DGX Spark OEM (GB10 SoC, ARM64, 128 GiB 統合メモリ)
+- Target: DGX Spark OEM (GB10 SoC, ARM64, 128 GiB integrated memory)
 - NVIDIA GPU + nvidia-container-toolkit
 - Docker + Docker Compose
-- Python (uv で管理。ベンチマークスクリプト用)
-- モデルウェイト: `~/model_weights/` に配置（NIM を除く）
+- Python (managed with uv, for benchmark scripts)
+- Model weights: Located in `~/model_weights/` (except NIM)
 
-## 関連ドキュメント
+## Related Documentation
 
-- `docs/thinking-mode.md`: Qwen3 Thinking モード
-- `docs/tool-calling.md`: vLLM ツール呼び出しガイド
+- `docs/thinking-mode.md`: Qwen3 Thinking mode
+- `docs/tool-calling.md`: vLLM tool calling guide

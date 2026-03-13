@@ -1,40 +1,42 @@
 # dgx-llm-serve
 
-[NVIDIA DGX Spark](https://marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/) および OEM 機向けの LLM 推論バックエンド設定集。
+**NOTE**: All contents in here was auto-translated by GLM 4.7.
 
-> **注意**: 本リポジトリは DGX Spark / OEM 機専用です。他の環境での動作は想定していません。
+LLM inference backend configuration collection for [NVIDIA DGX Spark](https://marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/) and OEM machines.
 
-## 対象ハードウェア
+> **Note**: This repository is specifically for DGX Spark / OEM machines. Operation on other environments is not expected.
+
+## Target Hardware
 
 - [NVIDIA DGX Spark](https://marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/)
-- OEM 機（[Lenovo ThinkStation PGX](https://www.lenovo.com/us/en/p/workstations/thinkstation-p-series/lenovo-thinkstation-pgx-sff/30kl0002us) 等）
+- OEM machines (e.g., [Lenovo ThinkStation PGX](https://www.lenovo.com/us/en/p/workstations/thinkstation-p-series/lenovo-thinkstation-pgx-sff/30kl0002us))
 
-### 動作確認環境
+### Verified Environment
 
 - Lenovo ThinkStation PGX
 
-## バックエンド一覧
+## Backend List
 
-| バックエンド | 技術 | 対応モデル | 特徴 |
-|-------------|------|-----------|------|
-| [trtllm](backends/trtllm/) | TensorRT-LLM | Qwen3-FP4, Nemotron-NVFP4 | マルチモデル同時起動対応 |
-| [vllm](backends/vllm/) | vLLM | Qwen3-Coder, Nemotron, Nemotron-VL | ツール呼び出し対応 |
-| [nim](backends/nim/) | NVIDIA NIM | Qwen3-32B, Llama-3.1-8B, Nemotron-Nano | NGC マネージドイメージ |
+| Backend | Technology | Supported Models | Features |
+|---------|-----------|------------------|----------|
+| [trtllm](backends/trtllm/) | TensorRT-LLM | Qwen3-FP4, Nemotron-NVFP4 | Multi-model concurrent deployment |
+| [vllm](backends/vllm/) | vLLM | Qwen3-Coder, Nemotron, Nemotron-VL | Tool calling support |
+| [nim](backends/nim/) | NVIDIA NIM | Qwen3-32B, Llama-3.1-8B, Nemotron-Nano | NGC managed images |
 
-## 前提条件
+## Prerequisites
 
-- DGX Spark または OEM 機（GB10 Grace Blackwell）
+- DGX Spark or OEM machine (GB10 Grace Blackwell)
 - Docker + Docker Compose
 - NVIDIA Container Toolkit
-- モデルウェイト: `~/model_weights/` に配置（NIM を除く）
+- Model weights: Configure in `~/model_weights/` (except NIM)
 
-## クイックスタート
+## Quick Start
 
 ```bash
-# TensorRT-LLM (Qwen3-FP4 単独)
+# TensorRT-LLM (Qwen3-FP4 standalone)
 cd backends/trtllm && docker compose --profile qwen up
 
-# TRT-LLM マルチモデル (Qwen3-FP4 + Nemotron-NVFP4 を単一ポートで同時起動)
+# TRT-LLM multi-model (Qwen3-FP4 + Nemotron-NVFP4 simultaneous deployment on single port)
 cd backends/trtllm && docker compose --profile multi up
 
 # vLLM (Qwen3-Coder)
@@ -44,9 +46,9 @@ cd backends/vllm && docker compose --profile qwen up
 cd backends/nim && docker compose up
 ```
 
-## API テスト
+## API Test
 
-全バックエンドで OpenAI 互換 API がポート 8000 で公開されます。
+OpenAI-compatible APIs are exposed on port 8000 for all backends.
 
 ```bash
 curl -X POST http://localhost:8000/v1/chat/completions \
@@ -58,40 +60,40 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   }'
 ```
 
-## ドキュメント
+## Documentation
 
-- [Thinking モード](docs/thinking-mode.md) - Qwen3 の思考プロセス出力
-- [ツール呼び出し](docs/tool-calling.md) - vLLM でのツール呼び出し設定とデバッグ
+- [Thinking Mode](docs/thinking-mode.md) - Qwen3 thinking process output
+- [Tool Calling](docs/tool-calling.md) - vLLM tool calling configuration and debugging
 
-## セキュリティに関する注意事項
+## Security Notes
 
-本リポジトリは個人利用・ローカル実行を想定しています。
+This repository is intended for personal use and local execution.
 
-### デフォルト設定
+### Default Settings
 
-- **ポートバインド**: `127.0.0.1:8000` （ローカルホストのみ）
-- **API 認証**: なし（ローカル実行前提）
+- **Port binding**: `127.0.0.1:8000` (local host only)
+- **API authentication**: None (local execution assumed)
 
-### LAN 内の他デバイスからアクセスする場合
+### Access from Other Devices on LAN
 
-各 `compose.yml` のポート設定を変更してください:
+Change the port configuration in each `compose.yml`:
 
 ```yaml
-# 変更前（ローカルのみ）
+# Before (local only)
 ports:
   - "127.0.0.1:8000:8000"
 
-# 変更後（LAN 公開）
+# After (LAN public)
 ports:
   - "8000:8000"
 ```
 
-**注意**: LAN 公開時は以下を確認してください:
-- ルーターでポート 8000 への外部（インターネット）アクセスがブロックされていること
-- LAN 内の信頼できるデバイスのみがアクセスすること
+**Note**: When exposing to LAN, verify:
+- Router blocks external (internet) access to port 8000
+- Only trusted devices within the LAN can access
 
-### リモートコード実行に関する注意
+### Note on Remote Code Execution
 
-vLLM / TRT-LLM の Nemotron モデル（`--trust-remote-code` / `--trust_remote_code` フラグ）は HuggingFace からのコード実行を許可しています:
-- サプライチェーン攻撃のリスクが存在します
-- モデル初回ダウンロード時に `~/.cache/huggingface` 内のコードを確認することを推奨します
+vLLM / TRT-LLM Nemotron models (`--trust-remote-code` / `--trust_remote_code` flags) allow code execution from HuggingFace:
+- Supply chain attack risk exists
+- Recommended to verify code in `~/.cache/huggingface` on first model download

@@ -1,10 +1,10 @@
-# vLLM ツール呼び出しガイド
+# vLLM Tool Calling Guide
 
-vLLM でツール呼び出し（Function Calling）を使用する際の設定と、内部プロンプトのデバッグ方法をまとめる。
+A comprehensive guide for configuring tool calling (Function Calling) with vLLM and debugging internal prompts.
 
-## ツール呼び出しの有効化
+## Enabling Tool Calling
 
-### vLLM サーバー起動コマンド
+### vLLM Server Startup Command
 
 ```bash
 vllm serve Qwen/Qwen3-Coder-8B-Instruct \
@@ -12,7 +12,7 @@ vllm serve Qwen/Qwen3-Coder-8B-Instruct \
     --tool-call-parser qwen3_coder
 ```
 
-### Docker Compose 設定例
+### Docker Compose Configuration Example
 
 ```yaml
 services:
@@ -26,11 +26,11 @@ services:
 
 ---
 
-## 内部プロンプトの確認方法
+## How to Inspect Internal Prompts
 
-### 方法1: echo=true パラメータ（推奨）
+### Method 1: echo=true Parameter (Recommended)
 
-API リクエストに `echo: true` を追加することで、`prompt_logprobs` フィールドに内部プロンプトの各トークンが返却される。
+By adding `echo: true` to the API request, each token in the internal prompt is returned in the `prompt_logprobs` field.
 
 ```bash
 curl -s http://localhost:8000/v1/chat/completions \
@@ -57,7 +57,7 @@ curl -s http://localhost:8000/v1/chat/completions \
   }' > /tmp/echo_response.json
 ```
 
-内部プロンプトの整形表示:
+Format and display the internal prompt:
 
 ```bash
 python3 -c "
@@ -75,9 +75,9 @@ print(''.join(tokens))
 "
 ```
 
-### 方法2: apply_chat_template でオフライン確認
+### Method 2: Offline Verification with apply_chat_template
 
-vLLM を起動せずにローカルでプロンプトを確認できる。
+You can verify prompts locally without starting vLLM.
 
 ```python
 from transformers import AutoTokenizer
@@ -115,7 +115,7 @@ formatted_prompt = tokenizer.apply_chat_template(
 print(formatted_prompt)
 ```
 
-### 方法3: /tokenize エンドポイント
+### Method 3: /tokenize Endpoint
 
 ```bash
 curl -X POST http://localhost:8000/tokenize \
@@ -128,7 +128,7 @@ curl -X POST http://localhost:8000/tokenize \
     }'
 ```
 
-### 方法4: chat_template を直接確認
+### Method 4: Direct chat_template Verification
 
 ```python
 from transformers import AutoTokenizer
@@ -139,45 +139,45 @@ print(tokenizer.chat_template)
 
 ---
 
-## 方法比較
+## Method Comparison
 
-| 方法 | vLLM起動 | 難易度 | 精度 | 用途 |
-|------|----------|--------|------|------|
-| `echo=true` | 必要 | 低 | 高 | ランタイムデバッグ |
-| `apply_chat_template` | 不要 | 低 | 高 | 開発時の確認 |
-| `/tokenize` API | 必要 | 中 | 高 | API経由での確認 |
-| chat_template直接確認 | 不要 | 低 | - | テンプレート理解 |
-
----
-
-## 補足: デバッグログ環境変数
-
-以下の環境変数は内部プロンプトの出力には対応していない:
-
-| 環境変数 | 結果 |
-|---------|------|
-| `VLLM_LOGGING_LEVEL=DEBUG` | バッチ実行情報、エンジン状態等は出力される |
-| `VLLM_DEBUG_LOG_API_SERVER_RESPONSE=TRUE` | API レスポンスのログ出力用 |
-
-**内部プロンプトの確認には方法1（echo=true）または方法2（apply_chat_template）を使用すること。**
+| Method | Requires vLLM | Difficulty | Accuracy | Use Case |
+|--------|--------------|------------|----------|----------|
+| `echo=true` | Yes | Low | High | Runtime debugging |
+| `apply_chat_template` | No | Low | High | Development-time verification |
+| `/tokenize` API | Yes | Medium | High | Verification via API |
+| Direct chat_template check | No | Low | - | Template understanding |
 
 ---
 
-## ツール呼び出しフォーマット
+## Note: Debug Log Environment Variables
 
-Qwen3-Coder は以下の形式でツール呼び出しを出力:
+The following environment variables don't support internal prompt output:
+
+| Environment Variable | Result |
+|---------------------|--------|
+| `VLLM_LOGGING_LEVEL=DEBUG` | Batch execution info, engine state, etc. are output |
+| `VLLM_DEBUG_LOG_API_SERVER_RESPONSE=TRUE` | For API response log output |
+
+**Use Method 1 (echo=true) or Method 2 (apply_chat_template) for internal prompt verification.**
+
+---
+
+## Tool Calling Format
+
+Qwen3-Coder outputs tool calls in the following format:
 
 ```
-<tool_call>
+`
 {"name": "get_weather", "arguments": {"city": "Tokyo"}}
-</tool_call>
+` 
 ```
 
 ---
 
-## 参考リンク
+## References
 
-- [vLLM Tool Calling ドキュメント](https://docs.vllm.ai/en/latest/features/tool_calling/)
-- [vLLM 環境変数一覧](https://docs.vllm.ai/en/stable/configuration/env_vars/)
-- [Qwen Function Calling ガイド](https://qwen.readthedocs.io/en/latest/framework/function_call.html)
-- [HuggingFace Chat Templates ドキュメント](https://huggingface.co/docs/transformers/en/chat_templating)
+- [vLLM Tool Calling Documentation](https://docs.vllm.ai/en/latest/features/tool_calling/)
+- [vLLM Environment Variables List](https://docs.vllm.ai/en/stable/configuration/env_vars/)
+- [Qwen Function Calling Guide](https://qwen.readthedocs.io/en/latest/framework/function_call.html)
+- [HuggingFace Chat Templates Documentation](https://huggingface.co/docs/transformers/en/chat_templating)
