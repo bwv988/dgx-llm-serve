@@ -1,11 +1,11 @@
 x-common: &common
-  image: nvcr.io/nvidia/vllm:26.01-py3
+  image: nvcr.io/nvidia/vllm:26.02-py3
   restart: unless-stopped
   ipc: host
   ports:
     - "127.0.0.1:8000:8000"
   volumes:
-    - ${HOME}/model_weights:/app/model:ro
+    - ${HOME}/models:/app/model:ro
   environment:
     - NVIDIA_VISIBLE_DEVICES=all
   ulimits:
@@ -63,8 +63,7 @@ services:
 
   vllm-qwen35:
     <<: *common
-    # Qwen3.5 requires vLLM upstream image (NGC 26.01 transformers is too old for qwen3_5_moe)
-    # v0.17.0-cu130: fixes that were needed in nightly (Triton/RMSNormGated) are included in stable version
+    # FIXME: Check if Qwen3.5 works with 26.02.
     image: vllm/vllm-openai:v0.17.1-cu130
     profiles: ["qwen35"]
     # vllm/vllm-openai has ENTRYPOINT ["vllm", "serve"] preset, so only specify model path and beyond for command
@@ -101,31 +100,54 @@ services:
     command:
       - vllm
       - serve
-      - /app/model/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
+      - /app/model/hf/NVIDIA-Nemotron-3-Super-120B-A12B-FP8
       - --host
       - "0.0.0.0"
       - --port
       - "8000"
       - --served-model-name
-      - nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4
-      - --tensor-parallel-size
-      - "1"
-      - --gpu-memory-utilization
-      - "0.9"
-      - --max-model-len
-      - "32768"
-      - --max-num-seqs
-      - "4"
-      - --max-num-batched-tokens
-      - "2048"
+      - nemotron-3-super
+#- --async-scheduling
       - --dtype
       - auto
       - --kv-cache-dtype
-      - auto
+      - fp8
+      - --tensor-parallel-size
+      - "1"
+      - --max-model-len
+      - "262144"
+      - --enable-expert-parallel
+      - --swap-space
+      - "0"
       - --trust-remote-code
-      - --enforce-eager
+      - --gpu-memory-utilization
+      - "0.9"
+      - --max-cudagraph-capture-size
+      - "128"
+      - --enable-chunked-prefill
+      - --mamba-ssm-cache-dtype
+      - float16
+      - --reasoning-parser
+      - nemotron_v3
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - qwen3_coder
 
-  # --- multi プロファイル: Qwen3-Coder + Nemotron 同時起動 ---
+  vllm-qwen2.5-math:
+    <<: *common
+    profiles: ["qwen2.5-math"]
+    command:
+      - vllm
+      - serve
+      - /app/model/hf/Qwen2.5-Math-1.5B-Instruct
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --served-model-name
+      - hf/Qwen2.5-Math-1.5B-Instruct
+
+  # --- multi profile: Qwen3-Coder + Nemotron simultaneous startup ---
 
   vllm-multi-proxy:
     image: openresty/openresty:alpine
@@ -188,7 +210,7 @@ services:
 
   vllm-multi-nemotron:
     <<: *common
-    # NemotronH + NVFP4 requires 26.01. Driver 580 uses Forward Compat exclusively
+    # NemotronH + NVFP4 requires 26.02. Driver 580 uses Forward Compat exclusively
     profiles: ["multi"]
     ports: []
     healthcheck:
